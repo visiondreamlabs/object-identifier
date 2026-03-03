@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rozpoznávač objektů / Object Identfier</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-red: #E63946;
+            --hover-red: #C12F3B;
+            --bg-white: #FFFFFF;
+            --text-dark: #1D3557;
+            --gray-light: #F1FAEE;
+            --border-gray: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-white);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        /* --- Language Switcher --- */
+        .lang-switcher {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 5px;
+        }
+        .lang-btn {
+            background: #eee;
+            border: 1px solid #ccc;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .lang-btn.active {
+            background: var(--primary-red);
+            color: white;
+            border-color: var(--primary-red);
+        }
+
+        main {
+            max-width: 650px;
+            width: 100%;
+            text-align: center;
+            background: var(--bg-white);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            border: 1px solid var(--border-gray);
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            font-weight: 800;
+            color: var(--primary-red);
+            letter-spacing: -0.5px;
+        }
+
+        p.subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+        }
+
+        .btn, .file-upload-label {
+            background-color: var(--primary-red);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(230, 57, 70, 0.15);
+        }
+
+        .btn:hover, .file-upload-label:hover {
+            background-color: var(--hover-red);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary { background-color: #f8f9fa; color: #333; border: 1px solid #ccc; box-shadow: none; }
+        .btn-secondary:hover { background-color: #e9ecef; color: #000; }
+        .btn-blue { background-color: #457b9d; }
+        .btn-blue:hover { background-color: #1d3557; }
+
+        #fileInput { display: none; }
+
+        .preview-container {
+            width: 100%; height: 350px; background-color: #fafafa; border-radius: 16px;
+            overflow: hidden; display: flex; justify-content: center; align-items: center;
+            border: 2px dashed #ddd; position: relative; margin-bottom: 25px;
+        }
+
+        #imagePreview, #videoPreview { max-width: 100%; max-height: 100%; object-fit: contain; display: none; }
+        #videoPreview { width: 100%; height: 100%; object-fit: cover; }
+        .placeholder-text { color: #aaa; font-weight: 500; }
+        
+        .live-indicator {
+            position: absolute; top: 15px; right: 15px; background: rgba(230, 57, 70, 0.85);
+            color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem;
+            font-weight: 700; display: none; z-index: 10; animation: pulse 2s infinite;
+        }
+
+        #resultArea { min-height: 60px; display: flex; flex-direction: column; gap: 10px; justify-content: center; align-items: center; }
+        .prediction-box {
+            background-color: var(--gray-light); padding: 12px 20px; border-radius: 10px;
+            border-left: 4px solid var(--primary-red); text-align: left; width: 100%;
+            box-sizing: border-box; animation: fadeIn 0.3s ease-out; display: flex;
+            justify-content: space-between; align-items: center;
+        }
+        .prediction-box.secondary { border-left-color: #aaa; background-color: #fff; border: 1px solid #eee; opacity: 0.9; }
+        .prediction-label { font-size: 1rem; font-weight: 700; color: var(--text-dark); }
+        .prediction-confidence { font-size: 0.85rem; color: #666; background: rgba(255,255,255,0.8); padding: 2px 6px; border-radius: 4px; }
+
+        .loader {
+            border: 3px solid #f3f3f3; border-top: 3px solid var(--primary-red);
+            border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: none;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        @media (max-width: 480px) {
+            .preview-container { height: 250px; }
+            .controls { flex-direction: column; }
+            .btn, .file-upload-label { width: 100%; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="lang-switcher">
+    <button class="lang-btn active" onclick="setLanguage('cz')">CZ</button>
+    <button class="lang-btn" onclick="setLanguage('en')">EN</button>
+</div>
+
+<main>
+    <h1 id="ui-title">Rozpoznávač objektů</h1>
+    <p id="ui-subtitle" class="subtitle">Nahrajte fotku, vložte ji ze schránky (CTRL+V) nebo použijte kameru pro živou detekci.</p>
+
+    <div id="modelStatus">
+        <div class="loader" id="mainLoader" style="display: inline-block;"></div>
+        <p id="ui-loadingModel" style="margin-top: 10px; font-size: 0.9rem;">Načítám neurální síť...</p>
+    </div>
+
+    <div class="controls" id="controlPanel" style="opacity: 0.5; pointer-events: none;">
+        <label for="fileInput" class="file-upload-label" id="uploadLabel">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <span id="ui-btnUpload">Nahrát fotku</span>
+        </label>
+        <input type="file" id="fileInput" accept="image/*">
+
+        <button id="pasteBtn" class="btn btn-blue">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+            <span id="ui-btnPaste">Vložit ze schránky</span>
+        </button>
+
+        <button id="startCameraBtn" class="btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            <span id="ui-btnCamera">Živá kamera</span>
+        </button>
+
+        <button id="stopCameraBtn" class="btn btn-secondary" style="display: none;">
+            <span id="ui-btnStopCamera">Zastavit kameru</span>
+        </button>
+    </div>
+
+    <div class="preview-container">
+        <div id="liveIndicator" class="live-indicator">LIVE</div>
+        <span id="ui-placeholder" class="placeholder-text">Zde se zobrazí náhled</span>
+        <img id="imagePreview" alt="Náhled" crossorigin="anonymous">
+        <video id="videoPreview" autoplay playsinline muted></video>
+    </div>
+
+    <div id="resultArea">
+        <div class="loader" id="predictionLoader"></div>
+        <div id="predictionResult" style="width: 100%;"></div>
+    </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@latest/dist/mobilenet.min.js"></script>
+
+<script>
+    // --- Jazykové mutace UI ---
+    const UI_TEXTS = {
+        cz: {
+            title: "Rozpoznávač objektů",
+            subtitle: "Nahrajte fotku, vložte ji ze schránky (CTRL+V) nebo použijte kameru pro živou detekci.",
+            loadingModel: "Načítám neurální síť...",
+            btnUpload: "Nahrát fotku",
+            btnPaste: "Vložit ze schránky",
+            btnCamera: "Živá kamera",
+            btnStopCamera: "Zastavit kameru",
+            placeholder: "Zde se zobrazí náhled",
+            scanning: "Skenuji...",
+            alternatives: "Možné alternativy:",
+            noImagePaste: "Ve schránce nebyl nalezen žádný obrázek.",
+            errorPaste: "Nelze číst ze schránky. Zkuste použít CTRL+V.",
+            errorCamera: "Nepodařilo se spustit kameru."
+        },
+        en: {
+            title: "Object Identifier",
+            subtitle: "Upload a photo, paste from clipboard (CTRL+V) or use camera for live detection.",
+            loadingModel: "Loading neural network...",
+            btnUpload: "Upload Photo",
+            btnPaste: "Paste from Clipboard",
+            btnCamera: "Live Camera",
+            btnStopCamera: "Stop Camera",
+            placeholder: "Preview will appear here",
+            scanning: "Scanning...",
+            alternatives: "Possible alternatives:",
+            noImagePaste: "No image found in clipboard.",
+            errorPaste: "Cannot read clipboard. Try using CTRL+V.",
+            errorCamera: "Failed to start camera."
+        }
+    };
+
+    let currentLang = 'cz';
+
+    function setLanguage(lang) {
+        currentLang = lang;
+        // Aktualizace tlačítek přepínače
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.innerText.toLowerCase() === lang);
+        });
+        
+        // Aktualizace textů v UI
+        const texts = UI_TEXTS[lang];
+        document.getElementById('ui-title').innerText = texts.title;
+        document.getElementById('ui-subtitle').innerText = texts.subtitle;
+        document.getElementById('ui-loadingModel').innerText = texts.loadingModel;
+        document.getElementById('ui-btnUpload').innerText = texts.btnUpload;
+        document.getElementById('ui-btnPaste').innerText = texts.btnPaste;
+        document.getElementById('ui-btnCamera').innerText = texts.btnCamera;
+        document.getElementById('ui-btnStopCamera').innerText = texts.btnStopCamera;
+        document.getElementById('ui-placeholder').innerText = texts.placeholder;
+        
+        // Pokud zrovna probíhá predikce, aktualizujeme ji (nepovinné)
+        if (lastPrediction) renderResults(lastPrediction);
+    }
+
+    // --- Slovník překladů (váš původní) ---
+    const TRANSLATIONS = {
+        "tench": "Lín obecný", "goldfish": "Zlatá rybka", "great white shark": "Žralok bílý", "tiger shark": "Žralok tygří", "hammerhead": "Kladivoun", "electric ray": "Rejnok elektrický", "stingray": "Trnucha", "cock": "Kohout", "hen": "Slepice", "ostrich": "Pštros", "brambling": "Pěnkava", "goldfinch": "Stehlík", "house finch": "Hýl", "junco": "Strnad", "indigo bunting": "Papežík", "robin": "Červenka", "bulbul": "Bulbul", "jay": "Sojka", "magpie": "Straka", "chickadee": "Sýkora", "water ouzel": "Skorec", "kite": "Luňák", "bald eagle": "Orel bělohlavý", "vulture": "Sup", "great grey owl": "Puštík", "european fire salamander": "Mlok", "common newt": "Čolek", "eft": "Mlok (vodní)", "spotted salamander": "Mlok skvrnitý", "axolotl": "Axolotl", "bullfrog": "Skokan volský", "tree frog": "Rosnička", "tailed frog": "Ocasatka", "loggerhead": "Kareta", "leatherback turtle": "Kožatka", "mud turtle": "Klapavka", "terrapin": "Želva", "box turtle": "Želva krabicová", "banded gecko": "Gekon", "common iguana": "Leguán", "american chameleon": "Anolis", "whiptail": "Bičochvost", "agama": "Agama", "frilled lizard": "Agama límcová", "alligator lizard": "Aligátorovec", "gila monster": "Korovec", "green lizard": "Ještěrka zelená", "african chameleon": "Chameleon", "komodo dragon": "Varan komodský", "african crocodile": "Krokodýl nilský", "american alligator": "Aligátor", "triceratops": "Triceratops", "thunder snake": "Had", "ringneck snake": "Užovka", "hognose snake": "Užovka", "green snake": "Užovka zelená", "king snake": "Korálovka", "garter snake": "Užovka proužkovaná", "water snake": "Užovka vodní", "vine snake": "Bičovka", "night snake": "Užovka noční", "boa constrictor": "Hroznýš", "rock python": "Krajta", "indian cobra": "Kobra", "green mamba": "Mamba", "sea snake": "Vodnář", "horned viper": "Zmije", "diamondback": "Chřestýš", "sidewinder": "Chřestýš rohatý", "trilobite": "Trilobit", "harvestman": "Sekáč", "scorpion": "Škorpion", "black and gold garden spider": "Křižák", "barn spider": "Křižák", "garden spider": "Křižák", "black widow": "Černá vdova", "tarantula": "Tarantule", "wolf spider": "Slíďák", "tick": "Klíště", "centipede": "Stonožka", "black grouse": "Tetřívek", "ptarmigan": "Bělokur", "ruffed grouse": "Jeřábek", "prairie chicken": "Tetřívek", "peacock": "Páv", "quail": "Křepelka", "partridge": "Koroptev", "african grey": "Žako", "macaw": "Ara", "sulphur-crested cockatoo": "Kakadu", "lorikeet": "Lori", "coucal": "Kukačka", "bee eater": "Vlha", "hornbill": "Zoborožec", "hummingbird": "Kolibřík", "jacamar": "Leskovec", "toucan": "Tukan", "drake": "Kačer", "red-breasted merganser": "Morčák", "goose": "Husa", "black swan": "Labuť černá", "tusker": "Slon", "echidna": "Ježura", "platypus": "Ptakopysk", "wallaby": "Klokan", "koala": "Koala", "wombat": "Vombat", "jellyfish": "Medúza", "sea anemone": "Sasanka", "brain coral": "Korál", "flatworm": "Ploštěnka", "nematode": "Hlístice", "conch": "Lastura", "snail": "Šnek", "slug": "Slimák", "sea slug": "Zej", "chiton": "Chroustnatka", "chambered nautilus": "Loděnka", "dungeness crab": "Krab", "rock crab": "Krab", "fiddler crab": "Krab", "king crab": "Krab královský", "american lobster": "Humr", "spiny lobster": "Langusta", "crayfish": "Rak", "hermit crab": "Poustevníček", "isopod": "Stejnonožec", "white stork": "Čáp bílý", "black stork": "Čáp černý", "spoonbill": "Kolpík", "flamingo": "Plameňák", "little blue heron": "Volavka", "american egret": "Volavka bílá", "bittern": "Bukač", "crane": "Jeřáb", "limpkin": "Kurlan", "european gallinule": "Slípka", "american coot": "Lyska", "bustard": "Drop", "ruddy turnstone": "Kamenáček", "red-backed sandpiper": "Jespák", "redshank": "Vodouš", "dowitcher": "Slukovec", "oystercatcher": "Ústřičník", "pelican": "Pelikán", "king penguin": "Tučňák", "albatross": "Albatros", "grey whale": "Plejtvákovec", "killer whale": "Kosatka", "dugong": "Dugong", "sea lion": "Lachtan", "chihuahua": "Čivava", "japanese spaniel": "Japonský španěl", "maltese dog": "Maltézský psík", "pekinese": "Pekinéz", "shih-tzu": "Shih-tzu", "blenheim spaniel": "Kavalír", "papillon": "Papillon", "toy terrier": "Toy teriér", "rhodesian ridgeback": "Ridgeback", "afghan hound": "Afghánský chrt", "basset": "Baset", "beagle": "Bígl", "bloodhound": "Bloodhound", "bluetick": "Bluetick", "black-and-tan coonhound": "Coonhound", "walker hound": "Walkerův pes", "english foxhound": "Foxhound", "redbone": "Redbone", "borzoi": "Barzoj", "irish wolfhound": "Irský vlkodav", "italian greyhound": "Chrtík", "whippet": "Whipet", "ibizan hound": "Podenco", "norwegian elkhound": "Losí pes", "otterhound": "Vydrař", "saluki": "Saluki", "scottish deerhound": "Jelení pes", "weimaraner": "Výmarský ohař", "staffordshire bullterrier": "Staford", "american staffordshire terrier": "Amstaf", "bedlington terrier": "Bedlington", "border terrier": "Border teriér", "kerry blue terrier": "Kerry blue", "irish terrier": "Irský teriér", "norfolk terrier": "Norfolk", "norwich terrier": "Norwich", "yorkshire terrier": "Yorkšír", "wire-haired fox terrier": "Foxteriér", "lakeland terrier": "Lakeland", "sealyham terrier": "Sealyham", "airedale": "Erdelteriér", "cairn": "Cairn", "australian terrier": "Australský teriér", "dandie dinmont": "Dandie", "boston bull": "Bostonek", "miniature schnauzer": "Knírač malý", "giant schnauzer": "Knírač velký", "standard schnauzer": "Knírač", "scotch terrier": "Skotský teriér", "tibetan terrier": "Tibetský teriér", "silky terrier": "Silky", "soft-coated wheaten terrier": "Wheaten", "west highland white terrier": "Westík", "lhasa": "Lhasa Apso", "flat-coated retriever": "Flat", "curly-coated retriever": "Curly", "golden retriever": "Zlatý retrívr", "labrador retriever": "Labrador", "chesapeake bay retriever": "Chesapeake", "german short-haired pointer": "Německý ohař", "vizsla": "Vižla", "english setter": "Anglický setr", "irish setter": "Irský setr", "gordon setter": "Gordon setr", "brittany spaniel": "Bretaňský ohař", "clumber": "Clumber", "english springer": "Špringr", "welsh springer spaniel": "Velššpringr", "cocker spaniel": "Kokršpaněl", "sussex spaniel": "Sussex", "irish water spaniel": "Vodní španěl", "kuvasz": "Čuvač", "schipperke": "Šiperka", "groenendael": "Groenendael", "malinois": "Malinois", "briard": "Briard", "kelpie": "Kelpie", "komondor": "Komondor", "old english sheepdog": "Bobtail", "shetland sheepdog": "Šeltie", "collie": "Kolie", "border collie": "Border kolie", "bouvier des flandres": "Bouvier", "rottweiler": "Rotvajler", "german shepherd": "Německý ovčák", "doberman": "Dobrman", "miniature pinscher": "Pinč", "greater swiss mountain dog": "Salašnický pes", "bernese mountain dog": "Bernský salašnický", "appenzeller": "Appenzell", "entlebucher": "Entlebuch", "boxer": "Boxer", "bull mastiff": "Bulmastif", "tibetan mastiff": "Tibetská doga", "french bulldog": "Buldoček", "great dane": "Německá doga", "saint bernard": "Bernardýn", "eskimo dog": "Eskymácký pes", "malamute": "Malamut", "siberian husky": "Husky", "dalmatian": "Dalmatin", "affenpinscher": "Opičí pinč", "basenji": "Basenji", "pug": "Mops", "leonberg": "Leonberger", "newfoundland": "Novofundlanďan", "great pyrenees": "Pyrenejský pes", "samoyed": "Samojed", "pomeranian": "Pomeranian", "chow": "Čau-čau", "keeshond": "Vlčí špic", "brabancon griffon": "Brabantík", "pembroke": "Corgi", "cardigan": "Corgi", "toy poodle": "Pudl toy", "miniature poodle": "Pudl malý", "standard poodle": "Pudl královský", "mexican hairless": "Naháč", "timber wolf": "Vlk", "white wolf": "Vlk polární", "red wolf": "Vlk rudohnědý", "coyote": "Kojot", "dingo": "Dingo", "dhole": "Dhol", "african hunting dog": "Pes hyenovitý", "hyena": "Hyena", "red fox": "Liška", "kit fox": "Liška", "arctic fox": "Liška polární", "grey fox": "Liška šedá", "tabby": "Kočka mourovatá", "tiger cat": "Kočka tygrovaná", "persian cat": "Perská kočka", "siamese cat": "Siamská kočka", "egyptian cat": "Egyptská kočka", "cougar": "Puma", "lynx": "Rys", "leopard": "Levhart", "snow leopard": "Irbis", "jaguar": "Jaguár", "lion": "Lev", "tiger": "Tygr", "cheetah": "Gepard", "brown bear": "Medvěd hnědý", "american black bear": "Baribal", "ice bear": "Lední medvěd", "sloth bear": "Medvěd pyskatý", "mongoose": "Mangusta", "meerkat": "Surikata", "tiger beetle": "Svižník", "ladybug": "Slunéčko", "ground beetle": "Střevlík", "long-horned beetle": "Tesařík", "leaf beetle": "Mandelinka", "dung beetle": "Vruboun", "rhinoceros beetle": "Nosorožík", "weevil": "Nosatec", "fly": "Moucha", "bee": "Včela", "ant": "Mravenec", "grasshopper": "Kobylka", "cricket": "Cvrček", "walking stick": "Pakobylka", "cockroach": "Šváb", "mantis": "Kudlanka", "cicada": "Cikáda", "leafhopper": "Křísek", "lacewing": "Zlatoočka", "dragonfly": "Vážka", "damselfly": "Šidélko", "admiral": "Babočka", "ringlet": "Okáč", "monarch": "Monarcha", "cabbage butterfly": "Bělásek", "sulphur butterfly": "Žluťásek", "lycaenid": "Modrásek", "starfish": "Hvězdice", "sea urchin": "Ježovka", "sea cucumber": "Sumýš", "wood rabbit": "Králík", "hare": "Zajíc", "angora": "Angorský králík", "hamster": "Křeček", "porcupine": "Dikobraz", "fox squirrel": "Veverka", "marmot": "Svišť", "beaver": "Bobr", "guinea pig": "Morče", "sorrel": "Kůň", "zebra": "Zebra", "hog": "Prase", "wild boar": "Divočák", "warthog": "Prase bradavičnaté", "hippopotamus": "Hroch", "ox": "Vůl", "water buffalo": "Buvol", "bison": "Bizon", "ram": "Beran", "bighorn": "Ovce tlustorohá", "ibex": "Kozorožec", "hartebeest": "Buvolec", "impala": "Impala", "gazelle": "Gazela", "arabian camel": "Dromedár", "llama": "Lama", "weasel": "Lasice", "mink": "Norek", "polecat": "Tchoř", "black-footed ferret": "Tchoř černonohý", "otter": "Vydra", "skunk": "Skunk", "badger": "Jezevec", "armadillo": "Pásovec", "three-toed sloth": "Lenochod", "orangutan": "Orangutan", "gorilla": "Gorila", "chimpanzee": "Šimpanz", "gibbon": "Gibon", "siamang": "Siamang", "guenon": "Kočkodan", "patas": "Kočkodan", "baboon": "Pavián", "macaque": "Makak", "langur": "Langur", "colobus": "Gueréza", "proboscis monkey": "Kahau", "marmoset": "Kosman", "capuchin": "Malpa", "howler monkey": "Vřešťan", "titi": "Titi", "spider monkey": "Chápan", "squirrel monkey": "Kotul", "madagascar cat": "Lemur", "indri": "Indri", "indian elephant": "Slon indický", "african elephant": "Slon africký", "lesser panda": "Panda červená", "giant panda": "Panda velká", "barracouta": "Barakuda", "eel": "Úhoř", "coho": "Losos", "rock beauty": "Pomec", "anemone fish": "Klaun", "sturgeon": "Jeseter", "gar": "Kostlín", "lionfish": "Perutýn", "puffer": "Čtverzubec", "abacus": "Počítadlo", "accordion": "Akordeon", "acoustic guitar": "Akustická kytara", "aircraft carrier": "Letadlová loď", "airliner": "Letadlo", "airship": "Vzducholoď", "altar": "Oltář", "ambulance": "Sanitka", "amphibian": "Obojživelník", "analog clock": "Hodiny", "apiary": "Včelín", "apron": "Zástěra", "ashcan": "Popelnice", "assault rifle": "Útočná puška", "backpack": "Batoh", "bakery": "Pekárna", "balance beam": "Kladina", "balloon": "Balón", "ballpoint": "Propiska", "band aid": "Náplast", "banjo": "Banjo", "bannister": "Zábradlí", "barbell": "Činka", "barber chair": "Holičské křeslo", "barbershop": "Holičství", "barn": "Stodola", "barometer": "Barometr", "barrel": "Sud", "barrow": "Kolečko", "baseball": "Baseball", "basketball": "Basketbal", "bassinet": "Kolébka", "bassoon": "Fagot", "bathing cap": "Koupací čepice", "bath towel": "Ručník", "bathtub": "Vana", "beach wagon": "Kombi", "beacon": "Maják", "beaker": "Kádinka", "bearskin": "Medvědice", "beer bottle": "Láhev piva", "beer glass": "Sklenice piva", "bell cote": "Zvonice", "bib": "Bryndák", "bicycle-built-for-two": "Tandemové kolo", "bikini": "Bikiny", "binder": "Pořadač", "binocular": "Dalekohled", "birdhouse": "Budka", "boathouse": "Loděnice", "bobsled": "Bob", "boletus": "Hřib", "bookcase": "Knihovna", "bookshop": "Knihkupectví", "bottlecap": "Víčko", "bow": "Luk", "bow tie": "Motýlek", "brass": "Mosaz", "brassiere": "Podprsenka", "breakwater": "Vlnolam", "breastplate": "Pancíř", "broom": "Koště", "bucket": "Kbelík", "buckle": "Přezka", "bullet train": "Šinkansen", "bulletproof vest": "Neprůstřelná vesta", "butcher shop": "Řeznictví", "cab": "Taxík", "caldron": "Kotel", "candle": "Svíčka", "cannon": "Dělo", "canoe": "Kánoe", "can opener": "Otvírák", "cardigan": "Svetr", "car wheel": "Kolo", "carousel": "Kolotoč", "carpenter's kit": "Nářadí", "carton": "Krabice", "car wheel": "Kolo auta", "cash machine": "Bankomat", "cassette": "Kazeta", "cassette player": "Přehrávač", "castle": "Hrad", "catamaran": "Katamarán", "cd player": "CD přehrávač", "cello": "Violoncello", "cellular telephone": "Mobil", "chain": "Řetěz", "chainlink fence": "Drátěný plot", "chain saw": "Motorová pila", "chest": "Truhla", "chiffonier": "Prádelník", "chime": "Zvonkohra", "china cabinet": "Vitrína", "christmas stocking": "Punčocha", "church": "Kostel", "cinema": "Kino", "cleaver": "Sekáček", "cliff dwelling": "Skalní obydlí", "cloak": "Plášť", "clog": "Dřevák", "cocktail shaker": "Šejkr", "coffee mug": "Hrnek", "coffeepot": "Konvice", "coil": "Cívka", "combination lock": "Zámek", "computer keyboard": "Klávesnice", "confectionery": "Cukrárna", "container ship": "Nákladní loď", "convertible": "Kabriolet", "corkscrew": "Vývrtka", "cornet": "Kornet", "cowboy boot": "Kovbojská bota", "cowboy hat": "Klobouk", "cradle": "Kolébka", "crane": "Jeřáb", "crash helmet": "Helma", "crate": "Bedna", "crib": "Postýlka", "crock pot": "Hrnec", "croquet ball": "Koule", "crutch": "Berle", "cuirass": "Kyrys", "dam": "Přehrada", "desk": "Stůl", "desktop computer": "Počítač", "dial telephone": "Telefon", "diaper": "Plenka", "digital clock": "Digitální hodiny", "digital watch": "Digitální hodinky", "dining table": "Jídelní stůl", "dishrag": "Utěrka", "dishwasher": "Myčka", "disk brake": "Kotoučová brzda", "dock": "Přístav", "dogsled": "Psí spřežení", "dome": "Kopule", "doormat": "Rohožka", "drilling platform": "Plošina", "drum": "Buben", "drumstick": "Palička", "dumbbell": "Činka", "dutch oven": "Hrnec", "electric fan": "Větrák", "electric guitar": "Kytara", "electric locomotive": "Lokomotiva", "entertainment center": "Obývací stěna", "envelope": "Obálka", "espresso": "Espresso", "face powder": "Pudr", "feather boa": "Boa", "file": "Šanon", "fireboat": "Hasičská loď", "fire engine": "Hasiči", "fire screen": "Zástěna", "flagpole": "Stožár", "flute": "Flétna", "folding chair": "Skládací židle", "football helmet": "Helma", "forklift": "Ještěrka (vozík)", "fountain": "Fontána", "fountain pen": "Pero", "four-poster": "Postel", "freight car": "Vagón", "french horn": "Lesní roh", "frying pan": "Pánev", "fur coat": "Kožich", "garbage truck": "Popeláři", "gasmask": "Maska", "gas pump": "Benzínka", "goblet": "Číše", "go-kart": "Motokára", "golf ball": "Míček", "golfcart": "Vozík", "gondola": "Gondola", "gong": "Gong", "gown": "Šaty", "grand piano": "Klavír", "greenhouse": "Skleník", "grille": "Mřížka", "grocery store": "Potraviny", "guillotine": "Gilotina", "hair slide": "Sponka", "hair spray": "Lak na vlasy", "half track": "Polopás", "hammer": "Kladivo", "hamper": "Koš", "hand blower": "Fén", "hand-held computer": "PDA", "handkerchief": "Kapesník", "hard disc": "Pevný disk", "harmonica": "Harmonika", "harp": "Harfa", "harvester": "Kombajn", "hatchet": "Sekyra", "holster": "Pouzdro", "home theater": "Domácí kino", "honeycomb": "Plástev", "hook": "Hák", "hoopskirt": "Krinolína", "horizontal bar": "Hrazda", "horse cart": "Povoz", "hourglass": "Hodiny", "ipod": "iPod", "iron": "Žehlička", "jack-o'-lantern": "Dýně", "jeans": "Džíny", "jeep": "Džíp", "jersey": "Dres", "jigsaw puzzle": "Puzzle", "jinrikisha": "Rikša", "joystick": "Joystick", "kimono": "Kimono", "knee pad": "Chránič", "knot": "Uzel", "lab coat": "Plášť", "ladle": "Naběračka", "lampshade": "Stínidlo", "laptop": "Notebook", "lawn mower": "Sekačka", "lens cap": "Krytka", "letter opener": "Otvírák", "library": "Knihovna", "lifeboat": "Člun", "lighter": "Zapalovač", "limousine": "Limuzína", "liner": "Loď", "lipstick": "Rtěnka", "loafer": "Mokasína", "lotion": "Krém", "loudspeaker": "Repro", "loupe": "Lupa", "lumbermill": "Pila", "magnetic compass": "Kompas", "mailbag": "Pošta", "mailbox": "Schránka", "maillot": "Plavky", "manhole cover": "Kanál", "matchstick": "Zápalka", "maypole": "Májka", "maze": "Bludiště", "measuring cup": "Odměrka", "medicine chest": "Lékárnička", "megalith": "Megalit", "microphone": "Mikrofon", "microwave": "Mikrovlnka", "military uniform": "Uniforma", "milk can": "Konvice", "minibus": "Minibus", "minivan": "Minivan", "missile": "Raketa", "mitt": "Rukavice", "mixing bowl": "Mísa", "mobile home": "Maringotka", "model t": "Ford T", "modem": "Modem", "monastery": "Klášter", "monitor": "Monitor", "moped": "Moped", "mortar": "Hmoždíř", "mortarboard": "Čepice", "mosque": "Mešita", "mosquito net": "Síť", "motor scooter": "Skútr", "mountain bike": "Kolo", "mountain tent": "Stan", "mouse": "Myš", "mousetrap": "Pastička", "moving van": "Stěhováci", "muzzle": "Náhubek", "nail": "Hřebík", "neck brace": "Límec", "necklace": "Náhrdelník", "nipple": "Dudlík", "notebook": "Zápisník", "obelisk": "Obelisk", "oboe": "Hoboj", "ocarina": "Okarína", "odometer": "Tachometr", "oil filter": "Filtr", "organ": "Varhany", "oscilloscope": "Osciloskop", "overskirt": "Sukně", "oxcart": "Povoz", "oxygen mask": "Maska", "packet": "Balíček", "paddle": "Pádlo", "paddlewheel": "Koleso", "padlock": "Zámek", "paintbrush": "Štětec", "pajama": "Pyžamo", "palace": "Palác", "panpipe": "Flétna", "paper towel": "Utěrka", "parachute": "Padák", "parallel bars": "Bradla", "park bench": "Lavička", "parking meter": "Automat", "passenger car": "Vagón", "patio": "Terasa", "pay-phone": "Telefon", "pedestal": "Podstavec", "pencil box": "Penál", "pencil sharpener": "Ořezávátko", "perfume": "Parfém", "petri dish": "Miska", "photocopier": "Kopírka", "pick": "Krumpáč", "pickelhaube": "Helma", "picket fence": "Plot", "pickup": "Pickup", "pier": "Molo", "piggy bank": "Prasátko", "pill bottle": "Lékovka", "pillow": "Polštář", "ping-pong ball": "Míček", "pinwheel": "Větrník", "pirate": "Pirát", "pitcher": "Džbán", "plane": "Hoblík", "planetarium": "Planetárium", "plastic bag": "Taška", "plate rack": "Odkapávač", "plow": "Pluh", "plunger": "Zvon", "polaroid camera": "Polaroid", "pole": "Tyč", "police van": "Antifízl", "poncho": "Pončo", "pool table": "Biliár", "pop bottle": "Limonáda", "pot": "Hrnec", "potter's wheel": "Kruh", "power drill": "Vrtačka", "prayer rug": "Kobereček", "printer": "Tiskárna", "prison": "Vězení", "projectile": "Projektil", "projector": "Projektor", "puck": "Puk", "punching bag": "Pytel", "purse": "Kabelka", "quill": "Brk", "quilt": "Deka", "racer": "Formule", "racket": "Raketa", "radiator": "Radiátor", "radio": "Rádio", "radio telescope": "Teleskop", "rain barrel": "Sud", "recreational vehicle": "Obytný vůz", "reel": "Naviják", "reflex camera": "Zrcadlovka", "refrigerator": "Lednice", "remote control": "Ovladač", "restaurant": "Restaurace", "revolver": "Revolver", "rifle": "Puška", "rocking chair": "Křeslo", "rotisserie": "Gril", "rubber eraser": "Guma", "rugby ball": "Míč", "rule": "Pravítko", "running shoe": "Bota", "safe": "Trezor", "safety pin": "Sicherka", "saltshaker": "Slánka", "sandal": "Sandál", "sarong": "Sarong", "sax": "Saxofon", "scabbard": "Pochva", "scale": "Váha", "school bus": "Autobus", "schooner": "Škuner", "scoreboard": "Tabule", "screen": "Obrazovka", "screw": "Šroub", "screwdriver": "Šroubovák", "seat belt": "Pás", "sewing machine": "Šicí stroj", "shield": "Štít", "shoe shop": "Obuv", "shoji": "Stěna", "shopping basket": "Košík", "shopping cart": "Vozík", "shovel": "Lopata", "shower cap": "Čepice", "shower curtain": "Závěs", "ski": "Lyže", "ski mask": "Kukla", "sleeping bag": "Spacák", "slide rule": "Pravítko", "sliding door": "Dveře", "slot": "Automat", "snorkel": "Šnorchl", "snowmobile": "Skútr", "snowplow": "Pluh", "soap dispenser": "Dávkovač", "soccer ball": "Míč", "sock": "Ponožka", "solar dish": "Kolektor", "sombrero": "Sombrero", "soup bowl": "Mísa", "space bar": "Mezerník", "space heater": "Topení", "space shuttle": "Raketoplán", "spatula": "Stěrka", "speedboat": "Člun", "spider web": "Pavučina", "spindle": "Vřeteno", "sports car": "Auto", "spotlight": "Reflektor", "stage": "Pódium", "steam locomotive": "Mašina", "steel arch bridge": "Most", "steel drum": "Buben", "stethoscope": "Stetoskop", "stole": "Štóla", "stone wall": "Zeď", "stopwatch": "Stopky", "stove": "Kamna", "strainer": "Cedník", "streetcar": "Tramvaj", "stretcher": "Nosítka", "studio couch": "Gauč", "stupa": "Stúpa", "submarine": "Ponorka", "suit": "Oblek", "sundial": "Hodiny", "sunglass": "Brýle", "sunglasses": "Brýle", "sunscreen": "Krém", "suspension bridge": "Most", "swab": "Mop", "sweatshirt": "Mikina", "swimming trunks": "Plavky", "swing": "Houpačka", "switch": "Vypínač", "syringe": "Stříkačka", "table lamp": "Lampa", "tank": "Tank", "tape player": "Kazeťák", "teapot": "Konvice", "teddy": "Medvídek", "television": "TV", "tennis ball": "Míček", "thatch": "Střecha", "theater curtain": "Opona", "thimble": "Náprstek", "thresher": "Mlátička", "throne": "Trůn", "tile roof": "Střecha", "toaster": "Toustovač", "tobacco shop": "Trafika", "toilet seat": "Prkénko", "torch": "Pochodeň", "totem pole": "Totem", "tow truck": "Odtahovka", "toyshop": "Hračky", "tractor": "Traktor", "trailer truck": "Kamion", "tray": "Podnos", "trench coat": "Kabát", "tricycle": "Tříkolka", "trimaran": "Loď", "tripod": "Stativ", "triumphal arch": "Oblouk", "trolleybus": "Trolejbus", "trombone": "Pozoun", "tub": "Vana", "turnstile": "Turniket", "typewriter keyboard": "Psací stroj", "umbrella": "Deštník", "unicycle": "Jednokolka", "upright": "Piano", "vacuum": "Vysavač", "vase": "Váza", "vault": "Trezor", "velvet": "Samet", "vending machine": "Automat", "vestment": "Roucho", "viaduct": "Viadukt", "violin": "Housle", "volleyball": "Volejbal", "waffle iron": "Vaflovač", "wall clock": "Hodiny", "wallet": "Peněženka", "wardrobe": "Skříň", "warplane": "Letadlo", "washbasin": "Umyvadlo", "washer": "Pračka", "water bottle": "Láhev", "water jug": "Džbán", "water tower": "Věž", "whiskey jug": "Džbán", "whistle": "Píšťalka", "wig": "Paruka", "window screen": "Síť", "window shade": "Roleta", "windsor tie": "Kravata", "wine bottle": "Víno", "wing": "Křídlo", "wok": "Wok", "wooden spoon": "Vařečka", "wool": "Vlna", "worm fence": "Plot", "wreck": "Vrak", "yawl": "Loď", "yurt": "Jurta", "web site": "Web", "comic book": "Komiks", "crossword puzzle": "Křížovka", "street sign": "Značka", "traffic light": "Semafor", "book jacket": "Kniha", "menu": "Menu", "plate": "Talíř", "guacamole": "Guacamole", "consomme": "Vývar", "hot pot": "Hrnec", "trifle": "Dort", "ice cream": "Zmrzlina", "ice lolly": "Nanuk", "french loaf": "Bageta", "bagel": "Bagel", "pretzel": "Preclík", "cheeseburger": "Burgr", "hotdog": "Hotdog", "mashed potato": "Kaše", "head cabbage": "Zelí", "broccoli": "Brokolice", "cauliflower": "Květák", "zucchini": "Cuketa", "spaghetti squash": "Tykev", "acorn squash": "Dýně", "butternut squash": "Dýně", "cucumber": "Okurka", "artichoke": "Artyčok", "bell pepper": "Paprika", "cardoon": "Kardon", "mushroom": "Houba", "granny smith": "Jablko", "strawberry": "Jahoda", "orange": "Pomeranč", "lemon": "Citrón", "fig": "Fík", "pineapple": "Ananas", "banana": "Banán", "jackfruit": "Jackfruit", "custard apple": "Anona", "pomegranate": "Granátové jablko", "hay": "Seno", "carbonara": "Carbonara", "chocolate sauce": "Poleva", "dough": "Těsto", "meat loaf": "Sekaná", "pizza": "Pizza", "potpie": "Koláč", "burrito": "Burrito", "red wine": "Víno", "espresso": "Espresso", "cup": "Šálek", "eggnog": "Koňak", "alp": "Hory", "bubble": "Bublina", "cliff": "Útes", "coral reef": "Útes", "geyser": "Gejzír", "lakeside": "Jezero", "promontory": "Mys", "sandbar": "Mělčina", "seashore": "Pobřeží", "valley": "Údolí", "volcano": "Sopka", "ballplayer": "Hráč", "groom": "Ženich", "scuba diver": "Potápěč", "rapeseed": "Řepka"
+    };
+
+    function translateTerm(term) {
+        if (!term) return "";
+        if (currentLang === 'en') return term.split(',')[0]; // Pro EN vrátíme původní jméno z AI
+        
+        let clean = term.toLowerCase().split(',')[0].trim();
+        clean = clean.replace(/\s*\(.*\)\s*/g, "");
+        return TRANSLATIONS[clean] || (term.charAt(0).toUpperCase() + term.slice(1));
+    }
+
+    let net;
+    let stream = null;
+    let isLive = false;
+    let liveInterval = null;
+    let lastPrediction = null;
+
+    const fileInput = document.getElementById('fileInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const videoPreview = document.getElementById('videoPreview');
+    const startCameraBtn = document.getElementById('startCameraBtn');
+    const stopCameraBtn = document.getElementById('stopCameraBtn');
+    const pasteBtn = document.getElementById('pasteBtn');
+    const uploadLabel = document.getElementById('uploadLabel');
+    const controlPanel = document.getElementById('controlPanel');
+    const modelStatus = document.getElementById('modelStatus');
+    const predictionResult = document.getElementById('predictionResult');
+    const predictionLoader = document.getElementById('predictionLoader');
+    const placeholderText = document.getElementById('ui-placeholder');
+    const liveIndicator = document.getElementById('liveIndicator');
+
+    async function loadModel() {
+        try {
+            net = await mobilenet.load({ version: 2, alpha: 1.0 });
+            modelStatus.style.display = 'none';
+            controlPanel.style.opacity = '1';
+            controlPanel.style.pointerEvents = 'auto';
+            document.addEventListener('paste', handlePasteEvent);
+        } catch (error) {
+            modelStatus.innerHTML = '<p style="color:red">Error loading model.</p>';
+            console.error(error);
+        }
+    }
+    loadModel();
+
+    async function classify(source) {
+        if(!net) return;
+        if (!isLive) {
+            predictionResult.innerHTML = '';
+            predictionLoader.style.display = 'inline-block';
+        }
+        try {
+            const results = await net.classify(source, 5);
+            lastPrediction = results;
+            renderResults(results);
+        } catch (e) {
+            console.error(e);
+            if (!isLive) predictionLoader.style.display = 'none';
+        }
+    }
+
+    function renderResults(results) {
+        if (!isLive) predictionLoader.style.display = 'none';
+        let htmlContent = '';
+        if (results && results.length > 0) {
+            htmlContent += createResultRow(results[0], true);
+            if (results[0].probability < 0.95 && results.length > 1) {
+                htmlContent += `<p style="text-align:left; font-size:0.8rem; color:gray; margin: 8px 0 4px;">${UI_TEXTS[currentLang].alternatives}</p>`;
+                results.slice(1, 3).forEach(r => {
+                    htmlContent += createResultRow(r, false);
+                });
+            }
+        }
+        predictionResult.innerHTML = htmlContent;
+    }
+
+    function createResultRow(item, primary) {
+        const cls = primary ? 'prediction-box' : 'prediction-box secondary';
+        return `<div class="${cls}">
+                    <span class="prediction-label">${translateTerm(item.className)}</span>
+                    <span class="prediction-confidence">${(item.probability * 100).toFixed(1)}%</span>
+                </div>`;
+    }
+
+    // --- Zbytek logiky (Kamera, Paste, Upload) zůstává stejný ---
+    function resetUI() {
+        stopCamera();
+        imagePreview.style.display = 'none';
+        videoPreview.style.display = 'none';
+        placeholderText.style.display = 'block';
+        liveIndicator.style.display = 'none';
+        predictionResult.innerHTML = '';
+        lastPrediction = null;
+    }
+
+    fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) processImageFile(file);
+    };
+
+    function processImageFile(file) {
+        resetUI();
+        placeholderText.style.display = 'none';
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            imagePreview.src = ev.target.result;
+            imagePreview.style.display = 'block';
+            imagePreview.onload = () => classify(imagePreview);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    pasteBtn.onclick = async () => {
+        try {
+            const items = await navigator.clipboard.read();
+            for (const item of items) {
+                const imageType = item.types.find(type => type.startsWith('image/'));
+                if (imageType) {
+                    const blob = await item.getType(imageType);
+                    processImageFile(blob);
+                    return;
+                }
+            }
+            alert(UI_TEXTS[currentLang].noImagePaste);
+        } catch (err) {
+            alert(UI_TEXTS[currentLang].errorPaste);
+        }
+    };
+
+    function handlePasteEvent(e) {
+        if (e.clipboardData && e.clipboardData.items) {
+            const items = e.clipboardData.items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const blob = items[i].getAsFile();
+                    processImageFile(blob);
+                    e.preventDefault();
+                    break;
+                }
+            }
+        }
+    }
+
+    startCameraBtn.onclick = async () => {
+        resetUI();
+        placeholderText.style.display = 'none';
+        startCameraBtn.style.display = 'none';
+        pasteBtn.style.display = 'none';
+        uploadLabel.style.display = 'none';
+        stopCameraBtn.style.display = 'inline-flex';
+        videoPreview.style.display = 'block';
+        liveIndicator.style.display = 'block';
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            videoPreview.srcObject = stream;
+            isLive = true;
+            videoPreview.onloadeddata = () => {
+                predictionResult.innerHTML = `<p style="color:#666">${UI_TEXTS[currentLang].scanning}</p>`;
+                liveInterval = setInterval(() => { if (isLive && net) classify(videoPreview); }, 500);
+            };
+        } catch (e) {
+            alert(UI_TEXTS[currentLang].errorCamera);
+            stopCamera();
+        }
+    };
+
+    stopCameraBtn.onclick = stopCamera;
+
+    function stopCamera() {
+        isLive = false;
+        clearInterval(liveInterval);
+        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+        startCameraBtn.style.display = 'inline-flex';
+        pasteBtn.style.display = 'inline-flex';
+        uploadLabel.style.display = 'inline-flex';
+        stopCameraBtn.style.display = 'none';
+        liveIndicator.style.display = 'none';
+    }
+</script>
+</body>
+</html>
